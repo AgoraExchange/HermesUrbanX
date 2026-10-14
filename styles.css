@@ -34,3 +34,7 @@
 .map-shell:has(#drawing-bar:not([hidden])) .map-error{display:none}
 
 .map-error{overflow-wrap:anywhere;font-size:11px}
+
+/* Keep the 2D map sized explicitly and avoid Safari tile blend compositing. */
+#map{width:100%;height:100%}
+#map .leaflet-tile{mix-blend-mode:normal}

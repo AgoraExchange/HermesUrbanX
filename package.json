@@ -15,7 +15,8 @@
     "test:flight": "node tests/flight-search-browser.mjs",
     "test:maps": "node tests/map-files-browser.mjs",
     "test:basemap": "node tests/basemap-browser.mjs",
-    "test:startup": "node tests/startup-browser.mjs"
+    "test:startup": "node tests/startup-browser.mjs",
+    "test:map-lifecycle": "node tests/map-lifecycle-browser.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
