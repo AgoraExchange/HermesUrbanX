@@ -3,10 +3,10 @@ export function flightControls(dialog,isPhoto){
  const keys=new Set(),held=new Map(),scene=dialog.querySelector('#fly-canvas'),stick=dialog.querySelector('#flight-stick'),thumb=stick.querySelector('span'),boost=dialog.querySelector('#flight-boost'),pointers=new Map(),listeners=[];
  let stickId=null,x=0,y=0,dx=0,dy=0,zoom=0,fast=false;
  const on=(el,type,fn,options)=>{el.addEventListener(type,fn,options);listeners.push(()=>el.removeEventListener(type,fn,options));};
- const map={KeyW:'forward',KeyS:'back',KeyA:'left',KeyD:'right',KeyR:'rise',KeyF:'lower',KeyQ:'turn-left',KeyE:'turn-right',ArrowLeft:'turn-left',ArrowRight:'turn-right',ArrowUp:'look-up',ArrowDown:'look-down',ShiftLeft:'boost',ShiftRight:'boost'};
- const editable=e=>e.target.closest('input,textarea,select,[contenteditable="true"]');
- on(dialog,'keydown',e=>{if(editable(e))return;if(map[e.code]){e.preventDefault();keys.add(e.code);}});
- on(dialog,'keyup',e=>{if(map[e.code]){e.preventDefault();keys.delete(e.code);}});
+ const map={KeyW:'forward',KeyS:'back',KeyA:'left',KeyD:'right',KeyR:'rise',KeyF:'lower',KeyQ:'turn-left',KeyE:'turn-right',ArrowLeft:'turn-left',ArrowRight:'turn-right',ArrowUp:'look-up',ArrowDown:'look-down',ShiftLeft:'boost',ShiftRight:'boost',Space:'boost'};
+ const editable=e=>e.target.closest?.('input,textarea,select,[contenteditable="true"]');
+ on(window,'keydown',e=>{if(!dialog.open||editable(e)||e.ctrlKey||e.metaKey||e.altKey)return;if(map[e.code]){e.preventDefault();e.stopPropagation();keys.add(e.code);}},{capture:true});
+ on(window,'keyup',e=>{if(map[e.code]){keys.delete(e.code);if(dialog.open&&!editable(e)){e.preventDefault();e.stopPropagation();}}},{capture:true});
  function reset(){keys.clear();held.clear();pointers.clear();stickId=null;x=y=dx=dy=zoom=0;thumb.style.transform='translate(0,0)';stick.classList.remove('engaged');}
  on(window,'blur',reset);on(document,'visibilitychange',reset);on(window,'resize',reset);on(dialog,'focusin',e=>{if(editable(e))reset();});
  function move(e){const r=stick.getBoundingClientRect(),radius=r.width*.32;let a=e.clientX-r.left-r.width/2,b=e.clientY-r.top-r.height/2;const length=Math.hypot(a,b);if(length>radius){a*=radius/length;b*=radius/length;}x=Math.abs(a/radius)<.12?0:a/radius;y=Math.abs(b/radius)<.12?0:b/radius;thumb.style.transform=`translate(${a}px,${b}px)`;}

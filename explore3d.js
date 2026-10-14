@@ -1,3 +1,4 @@
+import {photoFlightStep} from './photo-flight.js';
 import {markingColor,validMarkingPoints} from './markings.js';
 import {flightControls} from './flight-controls.js';
 import {cesiumIonToken} from './cesium-config.js';
@@ -38,9 +39,9 @@ export function openExplore3D({center,pins=[],routes=[],deviceLocation=()=>null,
     <div class="fly-options"><button type="button" class="button primary" id="fly-free">Free 3D buildings</button><button type="button" class="button secondary" id="fly-photo">Photorealistic 3D</button><button type="button" class="small-button" id="fly-markings" aria-pressed="true" hidden>Hide markings</button><button type="button" class="small-button" id="fly-reset">Reset view</button><button type="button" class="small-button" id="fly-return">Use view on map</button></div>
     <form id="fly-key-form" class="fly-key-form" hidden><p>Photorealistic buildings and terrain use a separate map provider. A Firebase key will not work here. Provider terms, coverage, and usage charges apply.</p><div class="form-row"><div><label for="fly-provider">Provider</label><select id="fly-provider"><option value="ion">Cesium ion access token</option><option value="google">Google Map Tiles API key</option></select></div><div><label for="fly-key">Your map token / key</label><input id="fly-key" type="password" autocomplete="off" spellcheck="false" required placeholder="Paste your restricted browser token"></div></div><div class="actions"><a href="https://ion.cesium.com/tokens" target="_blank" rel="noopener noreferrer">Get a Cesium token ↗</a><button class="button primary" type="submit">Load photorealistic scene</button></div><small>Used in memory for this visit only. Enable Google Photorealistic 3D Tiles in your Cesium account, or enable Map Tiles API for your Google key. Restrict it to your site.</small></form>
     <div class="fly-stage"><div id="fly-canvas"></div><div id="fly-status" class="fly-status" role="status">Loading the 3D viewer…</div><div id="fly-readout" class="fly-readout"></div><div class="flight-joystick"><div id="flight-stick" role="group" aria-label="Movement joystick"><span></span><small>MOVE</small></div><button type="button" id="flight-boost" aria-pressed="false">Fly faster</button></div><div class="flight-pad" aria-label="Flight controls">${[['left','←','Move left'],['forward','↑','Move forward'],['right','→','Move right'],['back','↓','Move backward'],['rise','＋','Rise / zoom out'],['lower','−','Lower / zoom in'],['turn-left','↶','Turn left'],['turn-right','↷','Turn right'],['look-up','⌃','Look up'],['look-down','⌄','Look down']].map(([key,label,title])=>`<button type="button" data-flight="${key}" aria-label="${title}" title="${title}">${label}</button>`).join('')}</div></div>
-    <footer class="fly-footer"><p id="fly-description">Free map geometry: building outlines and approximate heights, not photo-realistic surfaces or interiors.</p><small>Drag to move · right-drag / two fingers to tilt · WASD move · Q/E turn · R/F height · arrows look. Left joystick moves ? drag scene to look in photorealistic mode ? pinch to zoom ? Fly faster boosts speed. Imagery does not establish current safety.</small></footer>`;
+    <footer class="fly-footer"><p id="fly-description">Free map geometry: building outlines and approximate heights, not photo-realistic surfaces or interiors.</p><small>Drag to move · right-drag / two fingers to tilt · WASD level movement · Q/E turn · R/F height · arrows look. Hold Space / Shift for speed. Left joystick moves ? drag scene to look in photorealistic mode ? pinch to zoom ? Fly faster boosts speed. Imagery does not establish current safety.</small></footer>`;
   document.body.append(dialog);dialog.showModal();
-  const $=s=>dialog.querySelector(s);let engine=null,mode='free',generation=0,frame,closed=false,lastFrame=performance.now(),lastCenter={...center},surfaceHeight=0;
+  const $=s=>dialog.querySelector(s);let engine=null,mode='free',generation=0,frame,closed=false,lastFrame=performance.now(),lastCenter={...center},surfaceHeight=0,lastGroundSample=-Infinity;
   const controls=flightControls(dialog,()=>mode==='photo');
   const status=(message,error=false)=>{if(closed)return;$('#fly-status').textContent=message;$('#fly-status').hidden=!message;$('#fly-status').classList.toggle('error',error);};
   function disposeEngine(){controls.reset();if(engine){mode==='free'?engine.remove():engine.destroy();engine=null;}}
@@ -67,7 +68,7 @@ export function openExplore3D({center,pins=[],routes=[],deviceLocation=()=>null,
     try{window.CESIUM_BASE_URL=CESIUM_BASE;loadCSS(CESIUM_BASE+'Widgets/widgets.css');const C=await loadScript(CESIUM_BASE+'Cesium.js','Cesium');if(closed||attempt!==generation)return;
       C.Ion.defaultAccessToken=provider==='ion'?token:'';
       engine=new C.Viewer($('#fly-canvas'),{globe:false,baseLayer:false,geocoder:false,baseLayerPicker:false,animation:false,timeline:false,homeButton:false,sceneModePicker:false,navigationHelpButton:false,fullscreenButton:false,infoBox:false,selectionIndicator:false,requestRenderMode:false});
-      const controller=engine.scene.screenSpaceCameraController;if(controller)for(const key of ['enableTranslate','enableZoom','enableRotate','enableTilt','enableLook'])controller[key]=false;
+      const controller=engine.scene.screenSpaceCameraController;if(controller)controller.enableCollisionDetection=false;if(controller)for(const key of ['enableTranslate','enableZoom','enableRotate','enableTilt','enableLook'])controller[key]=false;
       engine.resolutionScale=Math.min(window.devicePixelRatio||1,1.5)/(window.devicePixelRatio||1);
       engine.camera.setView({destination:C.Cartesian3.fromDegrees(center.lng,center.lat-.003,350),orientation:{heading:0,pitch:C.Math.toRadians(-32),roll:0}});
       let tiles;
@@ -86,13 +87,12 @@ export function openExplore3D({center,pins=[],routes=[],deviceLocation=()=>null,
   }
   function animate(now){if(closed)return;const dt=Math.min((now-lastFrame)/1000,.05);lastFrame=now;const {x,y,turn,height,look,dx,dy,zoom,boost}=controls.sample();if(engine&&(x||y||turn||height||look||dx||dy||zoom)){
     if(mode==='free'){if(x||y)engine.panBy([x*190*dt*boost,y*190*dt*boost],{duration:0});if(turn)engine.setBearing(engine.getBearing()+turn*45*dt);if(height)engine.setZoom(Math.min(21,Math.max(3,engine.getZoom()-height*.8*dt*boost)));if(look)engine.setPitch(Math.min(85,Math.max(0,engine.getPitch()+look*30*dt)));}
-    else{const camera=engine.camera,C=window.Cesium,speed=Math.max(2,Math.min(Math.abs(camera.positionCartographic.height-surfaceHeight)*.3,120))*dt*boost;
-      if(x||y||height||turn||look||dx||dy||zoom)camera.cancelFlight?.();
-      if(x)camera.moveRight(x*speed);if(y)camera.moveBackward(y*speed);
-      if(zoom)camera.moveForward(Math.max(-2,Math.min(2,zoom))*Math.max(10,Math.abs(camera.positionCartographic.height-surfaceHeight))*.6);
-      if(height){const p=camera.positionCartographic;camera.setView({destination:C.Cartesian3.fromRadians(p.longitude,p.latitude,Math.max(2,p.height+height*speed))});}
-      if(turn||look||dx||dy)camera.setView({orientation:{heading:camera.heading+turn*.8*dt+dx*.004,pitch:Math.max(-1.48,Math.min(1.48,camera.pitch+look*.65*dt-dy*.004)),roll:0}});
-      if(camera.positionCartographic.height<2){const p=camera.positionCartographic;camera.setView({destination:C.Cartesian3.fromRadians(p.longitude,p.latitude,2)});}updateReadout();}
+    else{const camera=engine.camera,C=window.Cesium;
+      camera.cancelFlight?.();const p=camera.positionCartographic;
+      const sample=(lng,lat)=>{if(now-lastGroundSample>180&&engine.scene.sampleHeightSupported&&engine.scene.sampleHeight){lastGroundSample=now;try{const h=engine.scene.sampleHeight(C.Cartographic.fromRadians(lng,lat),engine.entities.values);if(Number.isFinite(h))surfaceHeight=h;}catch{}}return surfaceHeight;};
+      const next=photoFlightStep({...p,longitude:p.longitude,latitude:p.latitude,height:p.height,heading:camera.heading,pitch:camera.pitch},{x,y,turn,height,look,dx,dy,zoom,boost},dt,sample);
+      camera.setView({destination:C.Cartesian3.fromRadians(next.longitude,next.latitude,next.height),orientation:{heading:next.heading,pitch:next.pitch,roll:0}});
+      updateReadout();}
   }frame=requestAnimationFrame(animate);}frame=requestAnimationFrame(animate);
   $('#fly-markings').onclick=()=>{if(mode!=='photo'||!engine)return;engine.entities.show=!engine.entities.show;$('#fly-markings').textContent=engine.entities.show?'Hide markings':'Show markings';$('#fly-markings').setAttribute('aria-pressed',String(engine.entities.show));};
   $('#fly-free').onclick=free;$('#fly-photo').onclick=event=>photoreal(event,true);$('#fly-key-form').onsubmit=photoreal;$('#fly-reset').onclick=reset;

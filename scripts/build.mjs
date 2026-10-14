@@ -1,3 +1,4 @@
+import {RELEASES} from '../release-notes.js';
 import {APP_VERSION} from '../startup.js';
 import {mkdir,copyFile,cp,readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
@@ -5,8 +6,9 @@ import path from 'node:path';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const out=path.join(root,'dist');
 await mkdir(out,{recursive:true});
+if(!RELEASES.some(r=>r.version===APP_VERSION&&r.changes.length))throw Error('Add release notes for this app version before building.');
 if(JSON.parse(await readFile(path.join(root,'version.json'),'utf8')).version!==APP_VERSION)throw Error('App and update metadata versions must match.');
-for(const file of ['index.html','styles.css','app.js','core.js','geo.js','markings.js','explore3d.js','flight-controls.js','geocoding.js','map-files.js','wake-lock.js','basemap.js','startup.js','version.json','cesium-config.js','firebase-config.js','firebase-client.js','social.js','social-core.js','social-ui.js','sw.js','manifest.webmanifest'])await copyFile(path.join(root,file),path.join(out,file));
+for(const file of ['index.html','styles.css','app.js','core.js','geo.js','markings.js','explore3d.js','flight-controls.js','photo-flight.js','release-notes.js','geocoding.js','map-files.js','wake-lock.js','basemap.js','startup.js','version.json','cesium-config.js','firebase-config.js','firebase-client.js','social.js','social-core.js','social-ui.js','sw.js','manifest.webmanifest'])await copyFile(path.join(root,file),path.join(out,file));
 for(const dir of ['vendor','assets'])await cp(path.join(root,dir),path.join(out,dir),{recursive:true});
 const manifest=JSON.parse(await readFile(path.join(out,'manifest.webmanifest'),'utf8'));
 for(const item of manifest.icons)await readFile(path.join(out,item.src));

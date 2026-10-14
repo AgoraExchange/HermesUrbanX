@@ -1,3 +1,4 @@
+import {updateHistory} from './release-notes.js';
 import {APP_VERSION,showSplash,updateChecker} from './startup.js';
 import {basemapController} from './basemap.js';
 import {keepScreenAwake} from './wake-lock.js';
@@ -10,14 +11,15 @@ import {buildMarking,markingColor,minimumPoints,validMarkingPoints} from './mark
 import {openExplore3D} from './explore3d.js';
 import {testFirebaseConnection,explainFirebaseError} from './firebase-client.js';
 const $=s=>document.querySelector(s);
-let startupReady=false,pendingModal=null;showSplash().then(()=>{startupReady=true;basemap?.resume();pendingModal?.();pendingModal=null;});
-const checkUpdates=updateChecker({notify:text=>toast(text),prepare:()=>{if(current==='journal')flushJournal();}});
+let startupReady=false,pendingModal=null;showSplash().then(()=>{startupReady=true;basemap?.resume();pendingModal?.();pendingModal=null;if(releaseFeed.added)toast('Updated to HERMES '+APP_VERSION+'. Open Notifications to see what changed.');});
+const checkUpdates=updateChecker({notify:text=>toast(text),prepare:()=>{if(current==='journal')flushJournal();},beforeRestart:()=>releaseFeed.remember()});
 const paths={map:'M3 5l6-2 6 2 6-2v16l-6 2-6-2-6 2V5zm6-2v16m6-14v16',pin:'M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1116 0z M15 10a3 3 0 11-6 0 3 3 0 016 0',groups:'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M13 3a4 4 0 010 8M13 7a4 4 0 11-8 0 4 4 0 018 0',journal:'M4 3h14a2 2 0 012 2v16H6a3 3 0 010-6h14M4 3v15m4-10h8m-8 4h5',profile:'M20 21a8 8 0 00-16 0M16 7a4 4 0 11-8 0 4 4 0 018 0',bell:'M18 8a6 6 0 00-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',search:'M21 21l-5-5M18 10a8 8 0 11-16 0 8 8 0 0116 0',layers:'M12 3L2 8l10 5 10-5-10-5zM2 12l10 5 10-5M2 16l10 5 10-5',locate:'M12 2v4m0 12v4M2 12h4m12 0h4M19 12a7 7 0 11-14 0 7 7 0 0114 0m-5 0a2 2 0 11-4 0 2 2 0 014 0',cube:'M12 2L2 7v10l10 5 10-5V7L12 2zM2 7l10 5 10-5m-10 5v10m-5-17l10 5',close:'M6 6l12 12M6 18L18 6',arrow:'M5 12h14m-5-5l5 5-5 5',shield:'M12 2l9 4v6c0 6-9 10-9 10S3 18 3 12V6l9-4zm-5 10l3 3 7-7',route:'M5 5h10a4 4 0 010 8H9a4 4 0 000 8h10M5 2v6m14 10v6',check:'M4 12l5 5L20 6'};
 const icon=(name)=>`<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name]||paths.pin}"/></svg>`;
 const btn=(action,label,style='secondary',extra='')=>`<button type="button" class="button ${style}" data-action="${action}" ${extra}>${label}</button>`;
 const tags={spot:'Point of interest',meet:'Meet-up point',exit:'Exit / evacuation',avoid:'Area to avoid',note:'Field note'};
 let data,storageBlocked=false,lastSaveOK=true;
 try{data=loadState();}catch{data=freshState();storageBlocked=true;}
+const releaseFeed=updateHistory({getItem:k=>localStorage.getItem(k),setItem:(k,v)=>localStorage.setItem(k,v)},APP_VERSION,{existingUser:!!data.profile});
 data.imports??=[];
 keepScreenAwake();
 let current='map',scope='personal',activeGroup=null,journalPage=0,location=null,watch=null,following=false,map,tile,pinLayer,routeLayer,you,accuracyCircle,draftLayer,drawMode=null,drawPoints=[],photoDraft=null;
@@ -145,6 +147,8 @@ function renderProfile(){const p=data.profile;if(!p){onboarding();return;}const 
 function onboarding(){modal('Welcome to HERMES',`<span class="eyebrow">THE WORLD IS STILL WORTH EXPLORING</span><div class="sheet-hero">FIND YOUR WAY.<br>BRING YOUR PEOPLE.</div><p class="sheet-intro">Your map, your discoveries, your field journal. Start with a name your crew will recognize.</p><form id="onboard-form"><div class="field"><label for="onboard-name">Explorer username</label><input id="onboard-name" name="username" placeholder="e.g. nightwanderer" minlength="3" maxlength="20" pattern="[a-zA-Z0-9_]{3,20}" autocomplete="nickname" required><small>3–20 letters, numbers, or underscores. Start locally, then connect your explorer profile to reserve this name and invite your crew.</small></div><div class="field"><label for="onboard-photo">Profile photo (optional)</label><input id="onboard-photo" type="file" accept="image/*"><span class="avatar" id="photo-preview" style="margin-top:10px">H</span></div><button class="button primary wide" type="submit">Enter the field ${icon('arrow')}</button><p style="font-size:11px;margin-top:15px">Location sharing starts off. You decide when to enable GPS.</p></form>`,false);}
 async function photo(file){if(!file)return;if(!file.type.startsWith('image/')||file.size>12*1024*1024){toast('Choose an image smaller than 12 MB.');return;}try{const image=await createImageBitmap(file);const canvas=document.createElement('canvas');canvas.width=canvas.height=192;const ctx=canvas.getContext('2d'),side=Math.min(image.width,image.height);ctx.drawImage(image,(image.width-side)/2,(image.height-side)/2,side,side,0,0,192,192);image.close();photoDraft=canvas.toDataURL('image/jpeg',.8);$('#photo-preview').innerHTML=`<img src="${photoDraft}" alt="Selected profile photo">`;}catch{toast('This photo could not be opened. Try a JPG or PNG.');}}
 let searchController,searchMarker;
+function updateBadge(){const count=releaseFeed.unread();$('#notification-button').dataset.count=count||'';$('#notification-button').setAttribute('aria-label','Notifications'+(count?' ('+count+' unread)':''));}
+function updateNotificationsHTML(){const html=releaseFeed.html();if(social?.api.ready)queueMicrotask(()=>social.refresh());else updateBadge();return html;}
 function showDiagnostics(){
  const report={version:APP_VERSION,time:new Date().toISOString(),online:navigator.onLine,displayMode:navigator.standalone||matchMedia('(display-mode: standalone)').matches?'installed':'browser',browser:navigator.userAgent,devicePixelRatio,serviceWorker:!!navigator.serviceWorker?.controller,map:basemap?.diagnostics()||{state:'not initialized'},recentNotices};
  modal('App diagnostics','<p class="sheet-intro">This report stays here until you close it. It includes recent app notices; review before sharing.</p><textarea id="diagnostic-report" aria-label="Diagnostic report" readonly style="width:100%;min-height:260px;font-size:12px"></textarea><div class="actions"><button class="button primary" id="copy-diagnostics">Copy report</button>'+btn('map-basic','Use basic map')+'</div><p id="diagnostic-copy-status" role="status"></p>');
@@ -231,8 +235,8 @@ document.querySelector('[data-action="map-files"]').innerHTML=icon('map');
 document.querySelector('.rail-bottom>span:last-of-type').textContent='v'+APP_VERSION;
 $('#notification-button').innerHTML=icon('bell');$('#search-icon').innerHTML=icon('search');$('#location-icon').innerHTML=icon('locate');document.querySelector('[data-action="layers"]').innerHTML=icon('layers');document.querySelector('[data-action="locate"].icon-button').innerHTML=icon('locate');document.querySelector('[data-action="inspect"]').innerHTML=icon('cube');
 let social;
-renderNav();initMap();
-social=installSocial({data:()=>data,current:()=>current,scope:()=>scope,map:()=>map,location:()=>location,photoDraft:()=>photoDraft,pendingPoints:()=>pendingMarkPoints,setActiveGroup:id=>{activeGroup=id;},setScope:id=>{scope=id;},modal,close,toast,persist,renderNav,renderMap,renderPlaces,renderProfile,navigate,cancelDraw,shareText});
+renderNav();initMap();updateBadge();
+social=installSocial({updateNotificationsHTML,updateUnread:()=>releaseFeed.unread(),data:()=>data,current:()=>current,scope:()=>scope,map:()=>map,location:()=>location,photoDraft:()=>photoDraft,pendingPoints:()=>pendingMarkPoints,setActiveGroup:id=>{activeGroup=id;},setScope:id=>{scope=id;},modal,close,toast,persist,renderNav,renderMap,renderPlaces,renderProfile,navigate,cancelDraw,shareText});
 setInterval(updateGPS,10000);if(data.profile&&data.settings.gpsEnabled)startGPS();
 if(storageBlocked)modal('Your saved data needs attention',`<p class="sheet-intro">HERMES could not read this browser’s saved data. It has not overwritten it. Check storage settings or preserve the existing “hermes.local.v1” value before resetting.</p>`,false);else if(!data.profile)onboarding();
 if('serviceWorker' in navigator&&window.isSecureContext)navigator.serviceWorker.register('./sw.js').catch(()=>toast('Offline installation is unavailable in this browser.'));

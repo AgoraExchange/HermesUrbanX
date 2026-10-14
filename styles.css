@@ -38,3 +38,5 @@
 /* Keep the 2D map sized explicitly and avoid Safari tile blend compositing. */
 #map{width:100%;height:100%}
 #map .leaflet-tile{mix-blend-mode:normal}
+
+.update-notice{margin-bottom:16px}.update-notice h4{margin:14px 0 8px}.update-notice ul{padding-left:20px;color:var(--muted);line-height:1.6}.update-notice li+li{margin-top:6px}

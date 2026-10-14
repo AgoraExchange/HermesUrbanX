@@ -99,3 +99,11 @@ Validation: 36 unit tests; map fallback, startup and sketch browser suites; and 
 Photorealistic 3D receives the current map scope's saved pins, paths and zones. Pins have names above their markers and use heights relative to the 3D surface. Paths retain their colors; zones have closed outlines and translucent fills projected onto 3D Tiles. Markings can be hidden while inspecting imagery. This is a snapshot of the saved map when opening the viewer; reopen to pick up later edits.
 
 The enhancement browser suite checks scope isolation, label text, longitude/latitude ordering, surface-relative placement, path colors, closed zone geometry and show/hide controls using a mocked Cesium boundary; live-provider rendering still requires on-device verification. Cesium API references: https://cesium.com/learn/cesiumjs/ref-doc/PolylineGraphics.html and https://cesium.com/learn/cesiumjs/ref-doc/LabelGraphics.html .
+
+## Version 0.3.5 - update history and flight navigation
+
+Notifications includes a persistent local update history, old/new versions, release notes (including skipped releases), and read state. Fresh installs establish a version baseline; an existing installation without a recorded prior version labels that value as unknown. Future releases must add an entry to release-notes.js: the build rejects a version with no release notes. Notes are available without Firebase sign-in.
+
+Photorealistic movement uses horizontal heading-based navigation independent of camera pitch. WASD moves, arrows look, R/F changes altitude, and holding Space or Shift boosts speed. Window capture handlers preserve input when embedded viewers stop bubbling events; editable fields and browser shortcuts are excluded. Mobile movement uses the same navigation step, with sampled mesh clearance and gentle near-ground pitch recovery while moving forward. Manual look input takes priority. Height samples are throttled and depend on loaded imagery; this is not a physical collision simulation.
+
+Validation: 41 unit tests, desktop/mobile flight-control and address browser tests, mocked-Cesium integration including WASD displacement, persistent update-notification browser tests, and two-client simulated social flows. Real device/provider testing is still needed for mesh-dependent ground clearance.
