@@ -1,4 +1,4 @@
-﻿export const APP_VERSION='0.3.3';
+﻿export const APP_VERSION='0.3.4';
 export function showSplash(){const splash=document.querySelector('#launch-splash'),bar=splash?.querySelector('progress'),label=splash?.querySelector('p');if(!splash)return Promise.resolve();const start=performance.now();performance.mark('hermes-splash-start');return new Promise(resolve=>{const tick=()=>{const elapsed=performance.now()-start;if(bar)bar.value=Math.min(100,elapsed/25);if(label)label.textContent=elapsed<600?'Loading assets…':elapsed<1200?'Preparing your field…':elapsed<1900?'Loading map imagery…':document.querySelector('#map')?.dataset.basemap?.endsWith('loading')?'Opening HERMES · map is loading…':'Opening HERMES…';if(elapsed>=2500){performance.mark('hermes-splash-end');performance.measure('hermes-splash','hermes-splash-start','hermes-splash-end');splash.remove();resolve();}else requestAnimationFrame(tick);};tick();});}
 export function updateChecker({notify,prepare=()=>{},fetcher=fetch,nav=navigator,reload=()=>location.reload(),now=()=>Date.now(),version=APP_VERSION}={}){
  let busy=false,last=-Infinity;
