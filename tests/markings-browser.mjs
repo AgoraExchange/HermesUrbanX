@@ -1,7 +1,7 @@
 import {chromium,expect} from '@playwright/test';
 import path from 'node:path';
 const browser=await chromium.launch({headless:true,executablePath:process.env.HERMES_BROWSER||path.join(process.env.LOCALAPPDATA,'ms-playwright/chromium-1234/chrome-win64/chrome.exe')});
-const context=await browser.newContext({viewport:{width:390,height:844}});await context.route('https://tile.openstreetmap.org/**',route=>route.abort());
+const context=await browser.newContext({viewport:{width:390,height:844}});await context.route('https://tiles.openfreemap.org/**',r=>r.abort());await context.route('https://tile.openstreetmap.org/**',route=>route.abort());
 const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
 try{
   await page.goto('http://localhost:5188',{waitUntil:'domcontentloaded'});await page.locator('#onboard-name').fill('zone_explorer');await page.getByRole('button',{name:'Enter the field'}).click();

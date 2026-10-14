@@ -13,7 +13,9 @@
     "test:rules": "firebase emulators:exec --project demo-hermes --only firestore \"node tests/firestore-rules.mjs\"",
     "test:social": "node tests/social-browser.mjs",
     "test:flight": "node tests/flight-search-browser.mjs",
-    "test:maps": "node tests/map-files-browser.mjs"
+    "test:maps": "node tests/map-files-browser.mjs",
+    "test:basemap": "node tests/basemap-browser.mjs",
+    "test:startup": "node tests/startup-browser.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

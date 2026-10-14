@@ -23,7 +23,7 @@ export function onSnapshot(r,options,next,error){if(typeof options==='function')
 const browser=await chromium.launch({headless:true,executablePath:process.env.HERMES_BROWSER||path.join(process.env.LOCALAPPDATA,'ms-playwright/chromium-1234/chrome-win64/chrome.exe')});
 async function explorer(id,username,collision=false){
  const context=await browser.newContext({viewport:{width:390,height:844},geolocation:{latitude:33.749,longitude:-84.388,accuracy:6},permissions:['geolocation']});
- await context.route('https://tile.openstreetmap.org/**',r=>r.abort());await context.route('https://fonts.googleapis.com/**',r=>r.abort());
+ await context.route('https://tiles.openfreemap.org/**',r=>r.abort());await context.route('https://tile.openstreetmap.org/**',r=>r.abort());await context.route('https://fonts.googleapis.com/**',r=>r.abort());
  await context.exposeBinding('hermesRpc',async(_,req)=>{
   if(req.method==='read'){
    const r=req.ref;if(r.type!=='collection')return {data:store.get(r.path)||null,version:versions.get(r.path)||0};

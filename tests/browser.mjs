@@ -5,7 +5,7 @@ const executable=process.env.HERMES_BROWSER||path.join(process.env.LOCALAPPDATA|
 const browser=await chromium.launch({headless:true,executablePath:executable});
 const context=await browser.newContext({viewport:{width:1440,height:1050},geolocation:{latitude:33.749,longitude:-84.388,accuracy:9},permissions:['geolocation']});
 // Never drive the community tile server from automated pan/zoom tests.
-await context.route('https://tile.openstreetmap.org/**',route=>route.abort());
+await context.route('https://tiles.openfreemap.org/**',r=>r.abort());await context.route('https://tile.openstreetmap.org/**',route=>route.abort());
 const page=await context.newPage();const errors=[];const failedTiles=[];
 page.on('pageerror',error=>errors.push(error.message));page.on('requestfailed',r=>{if(r.url().includes('cartocdn'))failedTiles.push(r.url());});
 await mkdir('test-results',{recursive:true});
