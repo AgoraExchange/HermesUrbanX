@@ -96,6 +96,15 @@ export class HermesSocial{
     await this.sdk.runTransaction(this.db,async tx=>{const s=await tx.get(ref);if(s.exists()){if(!s.data().memberIds.includes(this.uid))throw Error('You left this conversation. Start a new explore group.');return;}tx.set(ref,{name:'@'+(this.profile?.username||'Explorer')+' + @'+(this.people.get(other)?.username||'Explorer'),memberIds:[this.uid,other],leaderId:this.uid,createdAt:this.stamp(),updatedAt:this.stamp(),addedId:other,joinToken:'',direct:true});});await this.waitForGroup(id);return id;
   }
   async waitForGroup(id){for(let i=0;i<40;i++){if(this.groups.has(id))return;await new Promise(resolve=>setTimeout(resolve,100));}}
+  async importMarks(gid,bundle,onProgress=()=>{}){
+    this.assertOnline();const group=this.groups.get(gid);if(!group||group.direct||!group.memberIds.includes(this.uid))throw Error('You must be a member of this explore group to import its map.');
+    const marks=[...bundle.pins.map(mark=>({id:mark.id,value:encodeMark(mark,'pin')})),...bundle.routes.map(mark=>({id:mark.id,value:encodeMark(mark,'route')}))];
+    onProgress(0,marks.length);
+    for(let offset=0;offset<marks.length;offset+=100){const chunk=marks.slice(offset,offset+100);this.assertOnline();
+      await this.sdk.runTransaction(this.db,async tx=>{const refs=chunk.map(m=>this.ref('groups',gid,'marks',m.id));const existing=await Promise.all(refs.map(ref=>tx.get(ref)));chunk.forEach((mark,i)=>tx.set(refs[i],{...mark.value,authorId:existing[i].exists()?existing[i].data().authorId:this.uid,createdAt:existing[i].exists()?existing[i].data().createdAt:this.stamp(),updatedAt:this.stamp()}));});
+      onProgress(Math.min(offset+100,marks.length),marks.length);
+    }
+  }
   async saveMark(gid,id,mark,kind){this.assertOnline();await this.sdk.runTransaction(this.db,async tx=>{const ref=this.ref('groups',gid,'marks',id),s=await tx.get(ref);tx.set(ref,{...encodeMark(mark,kind),authorId:s.exists()?s.data().authorId:this.uid,createdAt:s.exists()?s.data().createdAt:this.stamp(),updatedAt:this.stamp()});});}
   async deleteMark(gid,id){this.assertOnline();await this.sdk.runTransaction(this.db,async tx=>tx.delete(this.ref('groups',gid,'marks',id)));}
   async clearLocations(){for(const g of this.groups.values())await this.sdk.runTransaction(this.db,async tx=>tx.delete(this.ref('groups',g.id,'locations',this.uid)));}

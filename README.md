@@ -72,14 +72,16 @@ HERMES requests a screen wake lock while visible and reacquires it on returning 
 
 Direct friend chats have Open chatbox controls and no shared map or live location stream. Create an explore group for a shared plan. Outgoing messages appear immediately as sending and become sent only after server confirmation. Failed sends preserve the composer text.
 
-The map toolbar button beneath Locate opens Import / export map. Export produces a versioned JSON file for the current map only, including pins, notes, route/zone geometry and colors, without profiles, messages or live locations. Import validates the file and adds an independently named, device-only map under Shared maps. Imports and their POIs appear in Saved Places; routes and zones are viewed on the map. Import supports up to 5 MB, 2,000 markings and 500 points per marking.
+The map toolbar button beneath Locate opens Import / export map. Export produces a versioned JSON file for the current map only, including pins, notes, route/zone geometry and colors, without profiles, messages or live locations. Import validates the file and adds its markings to the currently viewed map without removing existing markings. My Map imports remain local; connected group imports save to Firestore and appear for other members. Legacy separate imported maps remain available. Saved Places lists POIs; routes and zones are viewed on the map. Import supports up to 5 MB, 2,000 markings and 500 points per marking.
 
 After this update, publish the latest firestore.rules to enforce the direct-chat map restriction.
 
-## Version 0.3.0 ? map recovery and updates
+## Version 0.3.1 ? map recovery and updates
 
 Installed home-screen apps render street/night maps through OpenFreeMap and MapLibre, preserving Leaflet pins, sketches and interactions. Ordinary browser sessions retain raster tiles with a timed vector fallback when image requests fail. Satellite failures can fall back to an explicitly labeled street map. The map repairs its size on resume and resize, and exposes Retry map plus Reload map / Use backup street map in Map layers. Map imagery requires an available provider and internet connection; the exact reported iPhone failure was not reproduced on physical hardware.
 
-Profile displays HERMES 0.3.0 and Check for updates. Checks fetch uncached version metadata, activate an installed update before reloading, and suppress repeat checks/notices for 15 seconds. Startup shows a 2.5-second splash with progress; slow map downloads continue after it closes. Release metadata in version.json must match APP_VERSION in startup.js.
+Profile displays HERMES 0.3.1 and Check for updates. Checks fetch uncached version metadata, activate an installed update before reloading, and suppress repeat checks/notices for 15 seconds. Startup shows a 2.5-second splash with progress; slow map downloads continue after it closes. Release metadata in version.json must match APP_VERSION in startup.js.
 
 The bundled MapLibre GL Leaflet adapter is upstream v0.1.3 from https://github.com/maplibre/maplibre-gl-leaflet, with its ISC license in vendor/MAPLIBRE-LEAFLET-LICENSE.txt. OpenFreeMap attribution remains visible on the map.
+
+In 0.3.1, the installed map uses a native MapLibre viewport outside transformed Leaflet panes, synchronizing its camera through public APIs. This covers street, night and satellite. WebKit and Chromium fixtures cover startup, layers, retries and resizing at phone dimensions; physical iPhone confirmation is still required. Group imports report progress in batches and retain document IDs for retries within the same import dialog.

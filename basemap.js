@@ -6,16 +6,34 @@ export function basemapController(map,{notice=document.querySelector('#map-error
  let layer=null,generation=0,timer,mode='dark',failed=false,vectorTried=false,lastResume=0,vector=false;
  function message(text,retry=true){notice.replaceChildren();notice.hidden=!text;if(!text)return;const label=document.createElement('span');label.textContent=text;notice.append(label);if(retry){const button=document.createElement('button');button.type='button';button.className='small-button';button.textContent='Retry map';button.onclick=()=>set(mode);notice.append(button);}}
  function clear(){clearTimeout(timer);if(layer){map.removeLayer(layer);layer=null;}map.getContainer().classList.remove('vector-map');}
- function problem(){failed=true;map.getContainer().dataset.basemap='unavailable';message('Map imagery is unavailable. Your saved pins and sketches are still here. Check your connection or retry.');}
+ function problem(detail=''){failed=true;map.getContainer().dataset.basemap='unavailable';message('Map imagery is unavailable. Your saved pins and sketches are still here. Check your connection or retry.'+(detail?' '+detail:''));}
  async function useVector(attempt,backup){vectorTried=true;clearTimeout(timer);message('Loading '+(backup?'backup ':'')+'street map…',false);
   try{if(!document.querySelector('link[data-maplibre]')&&!document.querySelector('link[href="./vendor/maplibre-gl.css"]')){const css=document.createElement('link');css.rel='stylesheet';css.href='./vendor/maplibre-gl.css';css.dataset.maplibre='';document.head.append(css);}
-   await script('./vendor/maplibre-gl.js',()=>!!window.maplibregl);await script('./vendor/leaflet-maplibre-gl.js',()=>!!window.L.maplibreGL);if(attempt!==generation)return;
-   clear();vector=true;map.getContainer().classList.add('vector-map');layer=L.maplibreGL({style:'https://tiles.openfreemap.org/styles/'+(mode==='dark'?'dark':'liberty'),interactive:false,padding:.05,attributionControl:{customAttribution:VECTOR},maxZoom:22}).addTo(map);
-   const gl=layer.getMaplibreMap();map.getContainer().dataset.basemap='vector-loading';timer=setTimeout(()=>{if(attempt===generation)problem();},18000);
-   gl.on('load',()=>{if(attempt!==generation)return;clearTimeout(timer);failed=false;map.getContainer().dataset.basemap='vector';message(backup&&mode==='satellite'?'Satellite unavailable. Showing a backup street map.':'',false);});
-   gl.on('error',()=>{if(attempt===generation)problem();});
-   gl.on('webglcontextlost',()=>{if(attempt===generation)problem();});
-   gl.on('webglcontextrestored',()=>{if(attempt===generation){gl.resize();gl.triggerRepaint();}});
+   await script('./vendor/maplibre-gl.js',()=>!!window.maplibregl);if(attempt!==generation)return;
+   clear();vector=true;map.getContainer().classList.add('vector-map');
+   // Keep WebGL out of Leaflet's translated/scaled panes. Safari composites this
+   // fixed viewport just like the standalone 3D viewer; Leaflet owns interaction.
+   const viewport=document.createElement('div');viewport.className='native-basemap';
+   viewport.style.cssText='position:absolute;inset:0;z-index:0;pointer-events:none';
+   map.getContainer().prepend(viewport);
+   const satellite=mode==='satellite'&&!backup;
+   const style=satellite?{version:8,sources:{imagery:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:19}},layers:[{id:'imagery',type:'raster',source:'imagery'}]}:'https://tiles.openfreemap.org/styles/'+(mode==='dark'?'dark':'liberty');
+   const center=map.getCenter();
+   let gl;
+   try{gl=new maplibregl.Map({container:viewport,style,center:[center.lng,center.lat],zoom:map.getZoom()-1,interactive:false,attributionControl:false,pixelRatio:Math.min(devicePixelRatio||1,2),maxZoom:22,renderWorldCopies:true});}catch(error){viewport.remove();throw error;}
+   const attribution=satellite?'Tiles &copy; Esri - Esri, Maxar, Earthstar Geographics, GIS User Community':VECTOR;
+   const sync=()=>{const c=map.getCenter();gl.jumpTo({center:[c.lng,c.lat],zoom:map.getZoom()-1});};
+   const resize=()=>{gl.resize();sync();gl.triggerRepaint();};
+   const NativeLayer=L.Layer.extend({onAdd(){map.on('move zoom',sync);map.on('resize',resize);map.attributionControl?.addAttribution(attribution);},onRemove(){map.off('move zoom',sync);map.off('resize',resize);map.attributionControl?.removeAttribution(attribution);gl.remove();viewport.remove();},getMaplibreMap(){return gl;}});
+   layer=new NativeLayer().addTo(map);
+   map.getContainer().dataset.basemap='vector-loading';let lastError='';
+   timer=setTimeout(()=>{if(attempt===generation)problem(lastError);},18000);
+   const ready=()=>{if(attempt!==generation||!gl.isStyleLoaded()||!gl.areTilesLoaded())return;clearTimeout(timer);failed=false;map.getContainer().dataset.basemap='vector';message(backup&&mode==='satellite'?'Satellite unavailable. Showing a backup street map.':'',false);};
+   gl.on('load',()=>{resize();ready();});gl.on('idle',ready);
+   gl.on('error',event=>{lastError=event.error?.message||'Map data could not be loaded.';map.getContainer().dataset.mapError=lastError;if(attempt===generation&&map.getContainer().dataset.basemap!=='vector')problem(lastError);});
+   gl.on('webglcontextlost',()=>{if(attempt===generation)problem('The map graphics context was interrupted.');});
+   gl.on('webglcontextrestored',resize);
+
   }catch{if(attempt!==generation)return;if(!backup){clear();raster(attempt);}else problem();}
  }
  function raster(attempt){vector=false;let loaded=0,errors=0;map.getContainer().dataset.basemap='raster-loading';const satellite=mode==='satellite';
@@ -25,8 +43,8 @@ export function basemapController(map,{notice=document.querySelector('#map-error
   const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>{if(!loaded)recover();},12000);};
   layer.on('loading',()=>{loaded=errors=0;arm();});layer.on('tileerror',()=>{if(attempt!==generation||vectorTried)return;if(++errors>=3)recover();});layer.on('tileload',()=>{if(attempt!==generation||layer!==active)return;loaded++;failed=false;map.getContainer().dataset.basemap='raster';message('');});layer.on('load',()=>{if(attempt!==generation||layer!==active)return;clearTimeout(timer);if(!loaded&&errors)recover();});layer.addTo(map);arm();
  }
- function set(name,{forceVector=false}={}){const attempt=++generation;clear();mode=['dark','street','satellite'].includes(name)?name:'dark';failed=false;vectorTried=false;map.getContainer().classList.toggle('night-map',mode==='dark');message('');map.invalidateSize({pan:false});if(forceVector||(standalone&&mode!=='satellite'))useVector(attempt,false);else raster(attempt);}
- function resume(){if(document.hidden)return;map.invalidateSize({pan:false});if(vector)layer?.getMaplibreMap?.()?.resize();if(failed&&navigator.onLine&&Date.now()-lastResume>5000){lastResume=Date.now();set(mode);}}
+ function set(name,{forceVector=false}={}){const attempt=++generation;clear();mode=['dark','street','satellite'].includes(name)?name:'dark';failed=false;vectorTried=false;map.getContainer().classList.toggle('night-map',mode==='dark');message('');map.invalidateSize({pan:false});if(forceVector||standalone)useVector(attempt,forceVector&&mode==='satellite');else raster(attempt);}
+ function resume(){if(document.hidden)return;map.invalidateSize({pan:false});if(vector){const gl=layer?.getMaplibreMap?.();gl?.resize();gl?.triggerRepaint();}if(failed&&navigator.onLine&&Date.now()-lastResume>5000){lastResume=Date.now();set(mode);}}
  window.addEventListener('pageshow',resume);window.addEventListener('online',resume);document.addEventListener('visibilitychange',resume);const observer=new ResizeObserver(()=>{if(!document.hidden)map.invalidateSize({pan:false});});observer.observe(map.getContainer());
  return {set,resume,destroy(){generation++;clear();observer.disconnect();window.removeEventListener('pageshow',resume);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume);}};
 }
