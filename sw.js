@@ -1,4 +1,4 @@
-const CACHE='hermes-shell-v9';
+const CACHE='hermes-shell-v10';
 const FILES=['./','./index.html','./styles.css','./app.js','./core.js','./geo.js','./markings.js','./explore3d.js','./flight-controls.js','./geocoding.js','./map-files.js','./wake-lock.js','./basemap.js','./startup.js','./cesium-config.js','./firebase-config.js','./firebase-client.js','./social.js','./social-core.js','./social-ui.js','./manifest.webmanifest','./vendor/leaflet.js','./vendor/leaflet.css','./vendor/maplibre-gl.js','./vendor/leaflet-maplibre-gl.js','./vendor/maplibre-gl.css','./assets/icon.svg','./assets/icon-192.png','./assets/icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(url=>new Request(url,{cache:'reload'}))))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('hermes-shell-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));

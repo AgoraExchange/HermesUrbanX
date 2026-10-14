@@ -85,3 +85,5 @@ Profile displays HERMES 0.3.1 and Check for updates. Checks fetch uncached versi
 The bundled MapLibre GL Leaflet adapter is upstream v0.1.3 from https://github.com/maplibre/maplibre-gl-leaflet, with its ISC license in vendor/MAPLIBRE-LEAFLET-LICENSE.txt. OpenFreeMap attribution remains visible on the map.
 
 In 0.3.1, the installed map uses a native MapLibre viewport outside transformed Leaflet panes, synchronizing its camera through public APIs. This covers street, night and satellite. WebKit and Chromium fixtures cover startup, layers, retries and resizing at phone dimensions; physical iPhone confirmation is still required. Group imports report progress in batches and retain document IDs for retries within the same import dialog.
+
+Version 0.3.2 adds App diagnostics in Profile and Map layers. The copyable report includes the first and recent map errors, renderer state and recent in-session notices; review it before sharing. Use basic map bypasses WebGL. Renderer-startup failure followed by image-load failure now reports a persistent error instead of silently stopping recovery. The underlying physical iPhone failure still needs its diagnostic report.
