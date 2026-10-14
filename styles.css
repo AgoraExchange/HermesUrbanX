@@ -25,3 +25,5 @@
 @media(hover:hover) and (pointer:fine){.flight-joystick,.flight-pad{display:none}}
 
 .flight-touch-hint{display:none}@media(hover:none),(pointer:coarse){.flight-desktop-hint{display:none}.flight-touch-hint{display:inline}}
+
+.import-places{margin:24px 0}.import-places .cards{margin:12px 0}.profile-heading>h3,.profile-heading>p{min-width:0;overflow-wrap:anywhere}.explorer-row>span:nth-child(2){min-width:0;overflow-wrap:anywhere}@media(max-width:760px){.topbar{height:auto;min-height:calc(88px + env(safe-area-inset-top));padding-top:calc(12px + env(safe-area-inset-top));padding-bottom:16px;align-items:center}.topbar>div:first-child{min-width:0}.topbar h1{line-height:1.2}.map-tools{gap:5px;top:14px}.map-tools .icon-button{width:36px;height:36px}.map-tools .tool-divider{height:0}.top-actions{flex-shrink:0}.profile-heading{align-items:center;flex-wrap:wrap}}

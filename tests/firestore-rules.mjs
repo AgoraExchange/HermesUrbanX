@@ -66,6 +66,8 @@ await allow(commit('outsider',write('groups/crew',{memberIds:['alice','bob','out
 await allow(get('outsider','groups/crew/messages/hello'),'joined member reads chat');
 await allow(commit('alice',write('groups/dm',g(['alice','bob'],{direct:true}))),'direct chat between friends');
 await allow(commit('bob',write('groups/dm/messages/a',message('bob'))),'friend sends direct message');
+await deny(commit('alice',write('groups/dm/marks/place',mark)),'direct chats have no shared map');
+await deny(commit('alice',write('groups/dm/preferences/alice',{shareLocation:true})),'direct chats cannot enable live sharing');
 await allow(commit('alice',del('friends/alice~bob')),'remove friendship');
 await deny(commit('bob',write('groups/dm/messages/b',message('bob'))),'direct messages blocked after unfriend');
 await allow(commit('alice',write('profiles/alice',{status:'deleting',shareLocation:false},true)),'start deletion');

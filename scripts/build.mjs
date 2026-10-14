@@ -4,7 +4,7 @@ import path from 'node:path';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const out=path.join(root,'dist');
 await mkdir(out,{recursive:true});
-for(const file of ['index.html','styles.css','app.js','core.js','geo.js','markings.js','explore3d.js','flight-controls.js','geocoding.js','cesium-config.js','firebase-config.js','firebase-client.js','social.js','social-core.js','social-ui.js','sw.js','manifest.webmanifest'])await copyFile(path.join(root,file),path.join(out,file));
+for(const file of ['index.html','styles.css','app.js','core.js','geo.js','markings.js','explore3d.js','flight-controls.js','geocoding.js','map-files.js','wake-lock.js','cesium-config.js','firebase-config.js','firebase-client.js','social.js','social-core.js','social-ui.js','sw.js','manifest.webmanifest'])await copyFile(path.join(root,file),path.join(out,file));
 for(const dir of ['vendor','assets'])await cp(path.join(root,dir),path.join(out,dir),{recursive:true});
 const manifest=JSON.parse(await readFile(path.join(out,'manifest.webmanifest'),'utf8'));
 for(const item of manifest.icons)await readFile(path.join(out,item.src));

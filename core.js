@@ -2,7 +2,7 @@ export const KEY = 'hermes.local.v1';
 export const WEEK = 7 * 24 * 60 * 60 * 1000;
 export const PAGE_SIZE = 2400;
 export const uid = () => crypto.randomUUID();
-export const freshState = () => ({version:1, profile:null, pins:[], routes:[], groups:[], journal:[{id:uid(),text:'',createdAt:Date.now()}], settings:{layer:'dark'}});
+export const freshState = () => ({version:1, profile:null, pins:[], routes:[], imports:[], groups:[], journal:[{id:uid(),text:'',createdAt:Date.now()}], settings:{layer:'dark'}});
 export const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function validateUsername(value){return /^[a-zA-Z0-9_]{3,20}$/.test(value)?'':'Use 3–20 letters, numbers, or underscores.';}
 export function renameWait(profile,now=Date.now()){return Math.max(0,WEEK-(now-profile.renamedAt));}

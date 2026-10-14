@@ -4,7 +4,7 @@ import {nameKey,millis,safePhoto,encodeMark,decodeMark,membershipAfterLeaving,MA
 // Every shared mutation awaits a server transaction. No silent offline queue of
 // location fixes, memberships, usernames or messages is replayed on reconnect.
 export class HermesSocial{
-  constructor({onChange=()=>{},onError=()=>{}}={}){this.onChange=onChange;this.onError=onError;this.groups=new Map();this.people=new Map();this.friends=[];this.positions=new Map();this.stops=[];this.groupStops=new Map();this.personStops=new Map();this.ready=false;}
+  constructor({onChange=()=>{},onError=()=>{}}={}){this.onChange=onChange;this.onError=onError;this.groups=new Map();this.people=new Map();this.friends=[];this.positions=new Map();this.stops=[];this.groupStops=new Map();this.personStops=new Map();this.ready=false;this.outbox=new Map();}
   ref(...parts){return this.sdk.doc(this.db,...parts);}
   collection(...parts){return this.sdk.collection(this.db,...parts);}
   stamp(){return this.sdk.serverTimestamp();}
@@ -32,14 +32,15 @@ export class HermesSocial{
   watchPerson(id){if(!id||this.personStops.has(id))return;const bag=[];this.personStops.set(id,bag);this.listen(this.ref('profiles',id),s=>{this.people.set(id,s.exists()?s.data():null);},bag);}
   watchGroup(g){
     const bag=[];this.groupStops.set(g.id,bag);
-    this.listen(this.sdk.query(this.collection('groups',g.id,'messages'),this.sdk.orderBy('createdAt','desc'),this.sdk.limit(100)),s=>{const live=this.groups.get(g.id);if(live)live.messages=s.docs.map(d=>({id:d.id,...d.data(),pending:d.metadata.hasPendingWrites})).reverse();},bag);
+    this.listen(this.sdk.query(this.collection('groups',g.id,'messages'),this.sdk.orderBy('createdAt','desc'),this.sdk.limit(100)),s=>{const live=this.groups.get(g.id);if(live){const remote=s.docs.map(d=>({id:d.id,...d.data(),pending:d.metadata.hasPendingWrites})).reverse();for(const m of remote)if(!m.pending)this.outbox.delete(g.id+'/'+m.id);live.messages=[...remote,...[...this.outbox.values()].filter(m=>m.groupId===g.id&&!remote.some(r=>r.id===m.id))].sort((a,b)=>millis(a.createdAt)-millis(b.createdAt));}},bag);
+    if(g.direct)return;
     this.listen(this.collection('groups',g.id,'marks'),s=>{const live=this.groups.get(g.id);if(live)live.marks=s.docs.map(d=>decodeMark(d.id,g.id,d.data())).filter(Boolean);},bag);
     this.listen(this.collection('groups',g.id,'preferences'),s=>{const live=this.groups.get(g.id);if(live)live.prefs=new Map(s.docs.map(d=>[d.id,d.data()]));},bag);
   }
   // Subscribe to individual locations only when both privacy switches permit it.
   refreshPresence(){
     this.presenceStops??=new Map();this.presenceRetry??=new Map();const desired=new Set();
-    for(const g of this.groups.values())for(const id of g.memberIds){const key=g.id+'/'+id;if(id===this.uid||!this.people.get(id)?.shareLocation||!g.prefs.get(id)?.shareLocation)continue;desired.add(key);if(this.presenceStops.has(key)||(this.presenceRetry.get(key)||0)>Date.now())continue;const stop=this.sdk.onSnapshot(this.ref('groups',g.id,'locations',id),s=>{if(s.exists())this.positions.set(key,{...s.data(),uid:id,groupId:g.id});else this.positions.delete(key);this.onChange();},()=>{this.positions.delete(key);this.presenceStops.delete(key);this.presenceRetry.set(key,Date.now()+15000);this.onChange();});this.presenceStops.set(key,stop);}
+    for(const g of this.groups.values())if(!g.direct)for(const id of g.memberIds){const key=g.id+'/'+id;if(id===this.uid||!this.people.get(id)?.shareLocation||!g.prefs.get(id)?.shareLocation)continue;desired.add(key);if(this.presenceStops.has(key)||(this.presenceRetry.get(key)||0)>Date.now())continue;const stop=this.sdk.onSnapshot(this.ref('groups',g.id,'locations',id),s=>{if(s.exists())this.positions.set(key,{...s.data(),uid:id,groupId:g.id});else this.positions.delete(key);this.onChange();},()=>{this.positions.delete(key);this.presenceStops.delete(key);this.presenceRetry.set(key,Date.now()+15000);this.onChange();});this.presenceStops.set(key,stop);}
     for(const [key,stop] of this.presenceStops)if(!desired.has(key)){stop();this.presenceStops.delete(key);this.positions.delete(key);}
   }
   async updateProfile(values){
@@ -81,12 +82,17 @@ export class HermesSocial{
   }
   async send(id,text,pin=null,messageId=null){
     this.assertOnline();const ref=messageId?this.ref('groups',id,'messages',messageId):this.sdk.doc(this.collection('groups',id,'messages'));const attachment=pin?JSON.stringify(encodeMark(pin,'pin')):'';
-    await this.sdk.runTransaction(this.db,async tx=>{if(messageId&&(await tx.get(ref)).exists())return;tx.set(ref,{authorId:this.uid,text:String(text).slice(0,2000),attachment,createdAt:this.stamp()});});return ref.id;
+    const key=id+'/'+ref.id,local={id:ref.id,groupId:id,authorId:this.uid,text:String(text).slice(0,2000),attachment,createdAt:Date.now(),pending:true};
+    const show=()=>{const g=this.groups.get(id);if(g){g.messages=[...g.messages.filter(m=>m.id!==ref.id),local].sort((a,b)=>millis(a.createdAt)-millis(b.createdAt));this.onChange();}};
+    this.outbox.set(key,local);show();
+    try{await this.sdk.runTransaction(this.db,async tx=>{if(messageId&&(await tx.get(ref)).exists())return;tx.set(ref,{authorId:this.uid,text:local.text,attachment,createdAt:this.stamp()});});local.pending=false;if(this.outbox.has(key))show();return ref.id;}
+    catch(error){this.outbox.delete(key);const g=this.groups.get(id);if(g)g.messages=g.messages.filter(m=>m.id!==ref.id);this.onChange();throw error;}
   }
+
   async direct(other){
     this.assertOnline();if(this.edge(other)?.status!=='accepted')throw Error('Accept a friend request before messaging.');
     const id='dm_'+[this.uid,other].sort().join('_'),ref=this.ref('groups',id);
-    // A direct group has the same controls as other groups; the first sender leads it.
+    // Keep direct chats compatible with existing conversation IDs; no map or group controls.
     await this.sdk.runTransaction(this.db,async tx=>{const s=await tx.get(ref);if(s.exists()){if(!s.data().memberIds.includes(this.uid))throw Error('You left this conversation. Start a new explore group.');return;}tx.set(ref,{name:'@'+(this.profile?.username||'Explorer')+' + @'+(this.people.get(other)?.username||'Explorer'),memberIds:[this.uid,other],leaderId:this.uid,createdAt:this.stamp(),updatedAt:this.stamp(),addedId:other,joinToken:'',direct:true});});await this.waitForGroup(id);return id;
   }
   async waitForGroup(id){for(let i=0;i<40;i++){if(this.groups.has(id))return;await new Promise(resolve=>setTimeout(resolve,100));}}
@@ -95,7 +101,7 @@ export class HermesSocial{
   async clearLocations(){for(const g of this.groups.values())await this.sdk.runTransaction(this.db,async tx=>tx.delete(this.ref('groups',g.id,'locations',this.uid)));}
   async publishLocation(fix){
     if(!this.ready||!this.profile?.shareLocation||this.profile.status!=='active'||!livePosition({...fix,measuredAt:fix?.timestamp})||globalThis.document?.hidden||globalThis.navigator?.onLine===false)return;
-    for(const g of this.groups.values())if(g.prefs.get(this.uid)?.shareLocation){await this.sdk.runTransaction(this.db,async tx=>{tx.set(this.ref('groups',g.id,'locations',this.uid),{lat:fix.lat,lng:fix.lng,accuracy:fix.accuracy,speed:Number.isFinite(fix.speed)?Math.max(0,fix.speed):null,measuredAt:fix.timestamp,updatedAt:this.stamp()});});}
+    for(const g of this.groups.values())if(!g.direct&&g.prefs.get(this.uid)?.shareLocation){await this.sdk.runTransaction(this.db,async tx=>{tx.set(this.ref('groups',g.id,'locations',this.uid),{lat:fix.lat,lng:fix.lng,accuracy:fix.accuracy,speed:Number.isFinite(fix.speed)?Math.max(0,fix.speed):null,measuredAt:fix.timestamp,updatedAt:this.stamp()});});}
   }
   async deleteProfile(){
     this.assertOnline();await this.sdk.runTransaction(this.db,async tx=>tx.update(this.ref('profiles',this.uid),{status:'deleting',shareLocation:false}));

@@ -65,3 +65,13 @@ Security tests: `npm run test:rules` requires Java 21+ and network access for Fi
 Multi-user browser tests use a simulated Firestore SDK across isolated sessions. They verify UI/client coordination and do not substitute for the real rules suite or two-phone testing. The live Cesium asset-token check returned HTTP 200; the full live scene was blocked because the development browser could not download Cesium JavaScript. Free WebGL geometry and configured photorealistic startup are tested with fixtures.
 
 Sources: [Firestore transaction/rules validation](https://firebase.google.com/docs/firestore/manage-data/transactions), [anonymous authentication](https://firebase.google.com/docs/auth/web/anonymous-auth), [Cesium scene sampling](https://cesium.com/learn/cesiumjs/ref-doc/Scene.html).
+
+## Screen, chats and portable maps
+
+HERMES requests a screen wake lock while visible and reacquires it on returning to the app. Browser support and OS power settings determine whether the request is granted.
+
+Direct friend chats have Open chatbox controls and no shared map or live location stream. Create an explore group for a shared plan. Outgoing messages appear immediately as sending and become sent only after server confirmation. Failed sends preserve the composer text.
+
+The map toolbar button beneath Locate opens Import / export map. Export produces a versioned JSON file for the current map only, including pins, notes, route/zone geometry and colors, without profiles, messages or live locations. Import validates the file and adds an independently named, device-only map under Shared maps. Imports and their POIs appear in Saved Places; routes and zones are viewed on the map. Import supports up to 5 MB, 2,000 markings and 500 points per marking.
+
+After this update, publish the latest firestore.rules to enforce the direct-chat map restriction.
