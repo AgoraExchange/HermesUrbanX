@@ -1,0 +1,3 @@
+﻿// Public Cesium browser viewer token. Restrict allowed URLs in the Cesium ion console.
+// Client-side encryption cannot hide a token that the browser sends to the provider.
+export const cesiumIonToken='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6Ind6ZUZkVUZwYk5saHpRMEsiLCJqdGkiOiIxYmUwZDExMi0wN2VjLTQwOGYtOTY1Ny0wNjY3MGZiNWNiZjYiLCJpZCI6NTIzMzExLCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3OTE5MTgzMTZ9.0wRVwsdFQYDPBj8C00onbWJ3YMAtytlfKhWOnEH5Fvc';

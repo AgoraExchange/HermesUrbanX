@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111715"><meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="HERMES — your field companion. Map places, plan with your crew, and keep a record of the roads you take.">
+  <title>HERMES · Field companion</title>
+  <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="stylesheet" href="./vendor/leaflet.css"><link rel="stylesheet" href="./styles.css">
+  <script src="./vendor/leaflet.js" defer></script><script type="module" src="./app.js"></script>
+</head>
+<body>
+  <aside class="rail"><a class="brand" href="./" aria-label="HERMES home"><span class="brand-symbol">H<span>↗</span></span><span>HERMES<small>FIELD COMPANION</small></span></a><div class="rail-caption">GO FURTHER. STAY CONNECTED.</div><nav id="navigation" aria-label="Main navigation"></nav><div class="rail-bottom"><span class="signal-dot"></span> LOCAL EDITION <span>v0.1</span><p>Your discoveries. Your device.</p></div></aside>
+  <main>
+    <header class="topbar"><div><span class="eyebrow">YOUR NEXT CHAPTER STARTS OUTSIDE</span><h1 id="page-title">The field</h1></div><div class="top-actions"><span id="connection" class="pill"><span class="signal-dot"></span> Device only</span><button class="icon-button" data-action="notifications" aria-label="Notifications" title="Notifications" id="notification-button"></button><button class="avatar" id="header-avatar" data-action="profile" aria-label="Your profile">H</button></div></header>
+    <section id="map-view" class="view map-view" aria-label="Explorer map">
+      <div class="map-heading"><div class="segmented"><button data-action="personal" class="active" id="personal-tab">My map</button><button data-action="shared" id="shared-tab">Shared maps <span id="group-count">0</span></button></div><div class="map-meta"><span class="signal-dot"></span><span id="map-scope-label">PRIVATE FIELD NOTES</span></div></div>
+      <div class="map-shell"><div id="map" aria-label="Interactive map"></div><div class="map-grain"></div>
+        <div class="map-top"><button class="map-search" data-action="search"><span id="search-icon"></span><span>Find an address, place or coordinates</span><kbd>⌕</kbd></button><select id="group-select" aria-label="Choose a shared map" hidden></select></div>
+        <div class="map-tools"><button class="icon-button" data-action="layers" aria-label="Map layers" title="Map layers"></button><button class="icon-button" data-action="inspect" aria-label="Explore this area" title="Explore this area"></button><span class="tool-divider"></span><button class="icon-button" data-action="zoom-in" aria-label="Zoom in">+</button><button class="icon-button" data-action="zoom-out" aria-label="Zoom out">−</button><button class="icon-button" data-action="locate" aria-label="Find my location" title="Find my location"></button></div>
+        <div id="map-error" class="map-error" role="status" hidden>Map imagery couldn’t load. Check your connection or try another layer. Your pins and notes are still available.</div>
+        <div id="drawing-bar" class="drawing-bar" hidden></div>
+        <div class="map-bottom"><div class="location-card"><span class="location-icon" id="location-icon"></span><div><strong id="gps-title">Find your bearings</strong><span id="gps-detail">Enable GPS to see your position</span></div><button class="small-button" data-action="locate" id="gps-button">Enable GPS</button></div><button class="sos-button" data-action="sos"><span>!</span> SOS</button></div>
+      </div>
+      <div class="field-footer"><div><span class="eyebrow">LEAVE A MARK</span><h2>Your field, mapped.</h2><p>Save the places worth coming back to.</p></div><div class="field-actions"><button class="button secondary" data-action="draw">Sketch a route</button><button class="button primary" data-action="drop-pin"><span>＋</span> Drop a pin</button></div></div>
+      <div id="map-summary" class="summary-grid"></div>
+    </section>
+    <section id="places-view" class="view content-view" hidden></section><section id="groups-view" class="view content-view" hidden></section><section id="journal-view" class="view content-view" hidden></section><section id="profile-view" class="view content-view" hidden></section>
+  </main>
+  <dialog id="sheet"><div class="sheet-handle"></div><div id="sheet-content"></div></dialog><div id="toast" role="status" aria-live="polite"></div>
+  <noscript>HERMES needs JavaScript to display maps and save field notes.</noscript>
+</body></html>

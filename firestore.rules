@@ -1,0 +1,86 @@
+﻿rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signed() { return request.auth != null; }
+  function me() { return request.auth.uid; }
+  function profile(id) { return get(/databases/$(database)/documents/profiles/$(id)).data; }
+  function active() { return signed() && profile(me()).status == 'active'; }
+  function group(id) { return get(/databases/$(database)/documents/groups/$(id)).data; }
+  function member(id) { return signed() && me() in group(id).memberIds; }
+  function accepted(a,b) {
+   return (exists(/databases/$(database)/documents/friends/$(a+'~'+b)) && get(/databases/$(database)/documents/friends/$(a+'~'+b)).data.status == 'accepted') || (exists(/databases/$(database)/documents/friends/$(b+'~'+a)) && get(/databases/$(database)/documents/friends/$(b+'~'+a)).data.status == 'accepted');
+  }
+  function validInvite(token,gid) {
+   let invite = get(/databases/$(database)/documents/invites/$(token)).data;
+   return invite.groupId == gid && invite.expiresAt > request.time && invite.ownerId == group(gid).leaderId && profile(invite.ownerId).status == 'active';
+  }
+  function admission(gid) {
+   return exists(/databases/$(database)/documents/groups/$(gid)/admissions/$(me())) && validInvite(get(/databases/$(database)/documents/groups/$(gid)/admissions/$(me())).data.token,gid);
+  }
+  match /connectionChecks/{uid} { allow get: if signed() && me() == uid; }
+  match /usernames/{name} {
+   allow get: if signed();
+   allow create: if signed() && name.matches('^[a-z0-9_]{3,20}$') && request.resource.data.keys().hasOnly(['uid']) && request.resource.data.uid == me() && getAfter(/databases/$(database)/documents/profiles/$(me())).data.username == name;
+   allow delete: if signed() && resource.data.uid == me() && (!existsAfter(/databases/$(database)/documents/profiles/$(me())) || getAfter(/databases/$(database)/documents/profiles/$(me())).data.username != name);
+  }
+  match /profiles/{uid} {
+   function valid(p) { return p.keys().hasOnly(['username','photo','note','shareLocation','status','createdAt','renamedAt']) && p.username is string && p.username.matches('^[a-z0-9_]{3,20}$') && p.note is string && p.note.size() <= 180 && (p.photo == null || (p.photo is string && p.photo.size() <= 90000 && p.photo.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$'))) && p.shareLocation is bool && p.status in ['active','deleting']; }
+   allow get: if signed();
+   allow create: if signed() && me() == uid && valid(request.resource.data) && request.resource.data.createdAt == request.time && request.resource.data.renamedAt == request.time && request.resource.data.status == 'active' && !request.resource.data.shareLocation && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == uid;
+   allow update: if signed() && me() == uid && valid(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt && (resource.data.status == 'active' || request.resource.data.status == 'deleting') && (request.resource.data.status != 'deleting' || !request.resource.data.shareLocation) && ((request.resource.data.username == resource.data.username && request.resource.data.renamedAt == resource.data.renamedAt) || (resource.data.status == 'active' && request.time >= resource.data.renamedAt + duration.value(7,'d') && request.resource.data.renamedAt == request.time && !existsAfter(/databases/$(database)/documents/usernames/$(resource.data.username)) && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == uid));
+   allow delete: if signed() && me() == uid && resource.data.status == 'deleting' && !existsAfter(/databases/$(database)/documents/usernames/$(resource.data.username));
+  }
+  match /friends/{id} {
+   allow get: if signed() && (!exists(/databases/$(database)/documents/friends/$(id)) || me() in resource.data.members);
+   allow list: if signed() && me() in resource.data.members;
+   allow create: if active() && request.resource.data.keys().hasOnly(['members','from','to','status','createdAt']) && request.resource.data.from == me() && request.resource.data.to != me() && profile(request.resource.data.to).status == 'active' && id == me()+'~'+request.resource.data.to && request.resource.data.members == [me(),request.resource.data.to] && request.resource.data.status == 'pending' && request.resource.data.createdAt == request.time && !exists(/databases/$(database)/documents/friends/$(request.resource.data.to+'~'+me()));
+   allow update: if active() && resource.data.to == me() && resource.data.status == 'pending' && request.resource.data.status == 'accepted' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+   allow delete: if signed() && me() in resource.data.members;
+  }
+  match /groups/{gid} {
+   function valid(g) { return g.keys().hasOnly(['name','memberIds','leaderId','createdAt','updatedAt','addedId','joinToken','direct']) && g.direct is bool && g.name is string && g.name.size() > 0 && g.name.size() <= 60 && g.memberIds is list && g.memberIds.size() <= 20 && g.memberIds.toSet().size() == g.memberIds.size() && g.updatedAt == request.time && (g.memberIds.size() == 0 ? g.leaderId == null : g.leaderId == g.memberIds[0]); }
+   function isAppend(g,old) { return g.memberIds.size() == old.memberIds.size()+1 && g.addedId == g.memberIds[g.memberIds.size()-1] && !(g.addedId in old.memberIds) && g.memberIds.removeAll([g.addedId]) == old.memberIds && g.leaderId == old.leaderId && g.name == old.name && g.direct == false; }
+   allow get: if signed() && (!exists(/databases/$(database)/documents/groups/$(gid)) || me() in resource.data.memberIds || admission(gid));
+   allow list: if signed() && me() in resource.data.memberIds;
+   allow create: if active() && valid(request.resource.data) && request.resource.data.createdAt == request.time && request.resource.data.leaderId == me() && request.resource.data.joinToken == '' && ((request.resource.data.memberIds == [me()] && !request.resource.data.direct) || (request.resource.data.memberIds == [me(),request.resource.data.addedId] && accepted(me(),request.resource.data.addedId)));
+   allow update: if signed() && valid(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt && (
+    (active() && me() == resource.data.leaderId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']))
+    || (active() && isAppend(request.resource.data,resource.data) && ((me() == resource.data.leaderId && request.resource.data.joinToken == '' && accepted(me(),request.resource.data.addedId) && profile(request.resource.data.addedId).status == 'active') || (request.resource.data.addedId == me() && validInvite(request.resource.data.joinToken,gid))))
+    || (me() in resource.data.memberIds && request.resource.data.memberIds == resource.data.memberIds.removeAll([me()]) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds','leaderId','updatedAt']))
+   );
+   match /admissions/{uid} {
+    allow get: if signed() && me() == uid;
+    allow create,update: if active() && me() == uid && request.resource.data.keys().hasOnly(['token']) && validInvite(request.resource.data.token,gid);
+    allow delete: if signed() && me() == uid;
+   }
+   match /preferences/{uid} {
+    allow read: if member(gid);
+    allow create,update: if active() && me() == uid && member(gid) && request.resource.data.keys().hasOnly(['shareLocation']) && request.resource.data.shareLocation is bool;
+    allow delete: if signed() && me() == uid;
+   }
+   match /messages/{mid} {
+    allow read: if member(gid);
+    allow create: if active() && member(gid) && (!group(gid).direct || (group(gid).memberIds.size() == 2 && accepted(group(gid).memberIds[0],group(gid).memberIds[1]))) && request.resource.data.keys().hasOnly(['authorId','text','attachment','createdAt']) && request.resource.data.authorId == me() && request.resource.data.createdAt == request.time && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000 && request.resource.data.attachment is string && request.resource.data.attachment.size() <= 12000;
+   }
+   match /marks/{mid} {
+    function valid(m) { return m.keys().hasOnly(['kind','name','notes','lat','lng','points','color','markerType','authorId','createdAt','updatedAt']) && m.kind in ['pin','path','zone'] && m.name is string && m.name.size()>0 && m.name.size()<=80 && m.notes is string && m.notes.size()<=4000 && m.lat is number && m.lat>=-90 && m.lat<=90 && m.lng is number && m.lng>=-180 && m.lng<=180 && m.points is string && m.points.size()<=24000 && m.color.matches('^#[0-9a-fA-F]{6}$') && m.markerType in ['spot','meet','exit','avoid','note'] && m.updatedAt == request.time; }
+    allow read: if member(gid);
+    allow create: if active() && member(gid) && valid(request.resource.data) && request.resource.data.authorId == me() && request.resource.data.createdAt == request.time;
+    allow update: if active() && member(gid) && valid(request.resource.data) && request.resource.data.authorId == resource.data.authorId && request.resource.data.createdAt == resource.data.createdAt;
+    allow delete: if active() && member(gid);
+   }
+   match /locations/{uid} {
+    function sharing() { return profile(uid).status == 'active' && profile(uid).shareLocation && get(/databases/$(database)/documents/groups/$(gid)/preferences/$(uid)).data.shareLocation; }
+    allow get: if signed() && (me() == uid || (member(gid) && uid in group(gid).memberIds && sharing() && (!exists(/databases/$(database)/documents/groups/$(gid)/locations/$(uid)) || resource.data.updatedAt > request.time-duration.value(90,'s'))));
+    allow create,update: if active() && me() == uid && member(gid) && sharing() && request.resource.data.keys().hasOnly(['lat','lng','accuracy','speed','measuredAt','updatedAt']) && request.resource.data.lat is number && request.resource.data.lat>=-90 && request.resource.data.lat<=90 && request.resource.data.lng is number && request.resource.data.lng>=-180 && request.resource.data.lng<=180 && request.resource.data.accuracy is number && request.resource.data.accuracy>=0 && (request.resource.data.speed == null || (request.resource.data.speed is number && request.resource.data.speed>=0)) && request.resource.data.updatedAt == request.time && request.resource.data.measuredAt is number && request.resource.data.measuredAt <= request.time.toMillis()+5000 && request.resource.data.measuredAt > request.time.toMillis()-60000;
+    allow delete: if signed() && me() == uid;
+   }
+  }
+  match /invites/{token} {
+   allow get: if active() && (resource.data.ownerId == me() || validInvite(token,resource.data.groupId));
+   allow list: if signed() && resource.data.ownerId == me();
+   allow create: if active() && token.matches('^[a-f0-9]{48}$') && request.resource.data.keys().hasOnly(['groupId','ownerId','name','createdAt','expiresAt']) && request.resource.data.ownerId == me() && group(request.resource.data.groupId).leaderId == me() && request.resource.data.name == group(request.resource.data.groupId).name && request.resource.data.createdAt == request.time && request.resource.data.expiresAt > request.time && request.resource.data.expiresAt <= request.time+duration.value(25,'h');
+   allow delete: if signed() && resource.data.ownerId == me();
+  }
+ }
+}

@@ -1,0 +1,9 @@
+﻿import test from 'node:test';
+import assert from 'node:assert/strict';
+import {nameKey,safePhoto,livePosition,membershipAfterLeaving,encodeMark,decodeMark,inviteFromURL} from '../social-core.js';
+test('usernames are case insensitive',()=>assert.equal(nameKey(' Night_Owl '),'night_owl'));
+test('leader transfer preserves join order and empty plans',()=>{assert.deepEqual(membershipAfterLeaving(['a','b','c'],'a'),{memberIds:['b','c'],leaderId:'b'});assert.deepEqual(membershipAfterLeaving(['a'],'a'),{memberIds:[],leaderId:null});});
+test('shared avatar rejects remote URLs and unsafe data',()=>{assert.equal(safePhoto('https://tracker.example/a.png'),null);assert.equal(safePhoto('data:image/svg+xml;base64,abc'),null);assert.equal(safePhoto('data:image/jpeg;base64,YWJj'),'data:image/jpeg;base64,YWJj');});
+test('locations disappear when stale and reject invalid coordinates',()=>{const p={lat:1,lng:2,accuracy:6,measuredAt:100000};assert.equal(livePosition(p,120000),true);assert.equal(livePosition(p,200000),false);assert.equal(livePosition({...p,lat:91},120000),false);assert.equal(livePosition({...p,measuredAt:130000},120000),false);});
+test('shared pins keep exact notes but malformed remote geometry is ignored',()=>{const pin={name:'Meet',lat:33,lng:-84,notes:'North entrance\nNear wall',type:'meet'};assert.equal(decodeMark('a','group',encodeMark(pin,'pin')).notes,pin.notes);assert.equal(decodeMark('a','group',{...encodeMark(pin,'pin'),lat:300}),null);assert.equal(decodeMark('a','group',{kind:'path',name:'x',notes:'',points:'[[1,2],[3,"oops"]]'}),null);});
+test('invite parsing accepts only valid group secrets or exact usernames',()=>{assert.deepEqual(inviteFromURL('https://example.com/HERMES/#friend=night_owl'),{kind:'friend',username:'night_owl'});assert.equal(inviteFromURL('#join=short'),null);assert.deepEqual(inviteFromURL('#join='+'a'.repeat(48)),{kind:'group',token:'a'.repeat(48)});});

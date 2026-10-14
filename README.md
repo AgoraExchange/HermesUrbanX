@@ -1,4 +1,4 @@
-# HERMES — connected field companion
+﻿# HERMES — connected field companion
 
 A mobile-first PWA with private exploration notes, live group chat, shared maps, and optional foreground location sharing. GitHub Pages serves the site; Firebase provides anonymous identities and Cloud Firestore.
 
@@ -65,4 +65,3 @@ Security tests: `npm run test:rules` requires Java 21+ and network access for Fi
 Multi-user browser tests use a simulated Firestore SDK across isolated sessions. They verify UI/client coordination and do not substitute for the real rules suite or two-phone testing. The live Cesium asset-token check returned HTTP 200; the full live scene was blocked because the development browser could not download Cesium JavaScript. Free WebGL geometry and configured photorealistic startup are tested with fixtures.
 
 Sources: [Firestore transaction/rules validation](https://firebase.google.com/docs/firestore/manage-data/transactions), [anonymous authentication](https://firebase.google.com/docs/auth/web/anonymous-auth), [Cesium scene sampling](https://cesium.com/learn/cesiumjs/ref-doc/Scene.html).
-
